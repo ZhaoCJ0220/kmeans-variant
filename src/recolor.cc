@@ -14,7 +14,7 @@ using Json = nlohmann::json;
 using namespace boost::filesystem;
 
 typedef struct kmeans_pack {
-  double MDL = 0;
+  double MDL = 0;//?
   uint k = 0;
   vector<uint> counts;
   vector<Pixel_D> palettes_rgb_d;
@@ -118,7 +118,7 @@ int getPalette(string input_image_path) {
 
 int main(int argc, char **argv) {
 
-  cout.precision(DBL::max_digits10);
+  cout.precision(DBL::max_digits10);//输出精度
 
   //input path
   string input_image_path = argv[1];
@@ -128,7 +128,7 @@ int main(int argc, char **argv) {
   //sorted by illuminance in LAB color space
   string desired_palette_args = argv[3];
 
-  int with_palette = stoi(argv[4]);
+  int with_palette = stoi(argv[4]);//string to int
 
   vector<Pixel_D> desired_palette_list;
 
@@ -152,7 +152,7 @@ int main(int argc, char **argv) {
     cout << desired_palette_list[i].x << " - "
          << desired_palette_list[i].y << " - "
          << desired_palette_list[i].z << endl;
-  }
+  }//desired_palette_list是目标色list
   cout << endl;
 #endif
 

@@ -106,8 +106,8 @@ int gridKmeans(const vector<Pixel_D> &pixels_rgb_d,
    * in each grid, count the number the pixels which fall into,
    * and calculate the LAB channels sum of these pixels.
    */
-  vector<uint> pixels_count(grid_size);
-  vector<Pixel_D> pixels_lab_sum(grid_size);
+  vector<uint> pixels_count(grid_size);//一维下标对应bin中的像素个数
+  vector<Pixel_D> pixels_lab_sum(grid_size);//lab三通道的和值
 
   for (size_t i = 0; i < image_area; ++i) {
 
@@ -122,7 +122,7 @@ int gridKmeans(const vector<Pixel_D> &pixels_rgb_d,
     bin_b = (uint) round(pixels_rgb_d[i].z / step_size);
     bin = bin_r * grid_num_square
         + bin_g * grid_num
-        + bin_b;
+        + bin_b;//取到一维下标
 
     pixels_count[bin] += 1;
     //LAB
@@ -140,8 +140,8 @@ int gridKmeans(const vector<Pixel_D> &pixels_rgb_d,
     }
   }
 
-  vector<uint> valid_pixels_count(valid_grid_size);
-  vector<Pixel_D> valid_pixels_lab_mean(valid_grid_size);
+  vector<uint> valid_pixels_count(valid_grid_size);//有效bin中像素个数
+  vector<Pixel_D> valid_pixels_lab_mean(valid_grid_size);//lab均值
   valid_grid_size = 0;
 
   //remove unused grids
@@ -162,7 +162,7 @@ int gridKmeans(const vector<Pixel_D> &pixels_rgb_d,
     vector<uint> valid_pixels_count_copy(valid_pixels_count);
 
     for (size_t i = 0; i < K; ++i) {
-      // 样本数最多的颜色格子
+      // 样本数最多的颜色格子（取了个下标，为啥要auto？）
       auto idx = distance(valid_pixels_count_copy.begin(),
                           max_element(valid_pixels_count_copy.begin(),
                                       valid_pixels_count_copy.end()));
@@ -205,7 +205,7 @@ int gridKmeans(const vector<Pixel_D> &pixels_rgb_d,
           min_dis = distance;
           min_idx = j;
         }
-      }
+      }//更新到min_idx中
       kmeans_count[min_idx] += valid_pixels_count[i];
       kmeans_sum[min_idx] +=
           valid_pixels_lab_mean[i] * (double) valid_pixels_count[i];
@@ -232,14 +232,14 @@ int doKmeans(const vector<Pixel_D> &pixels_rgb_d,
              vector<Pixel_D> &palette_rgb_d,
              vector<uint> &palette_count) {
 
-  assert(palette_rgb_d.size() == palette_count.size());
+  assert(palette_rgb_d.size() == palette_count.size());//不等则程序终止
 
   uint K = (uint) palette_count.size();
   vector<Pixel_D> palette_lab(K);
 
-  gridKmeans(pixels_rgb_d, palette_lab, palette_count, 128);
+  gridKmeans(pixels_rgb_d, palette_lab, palette_count, 128);//grid remain to search
 
-  //sort by L component by LAB
+  //sort by L component by LAB(按L选择排序（升序））
   for (long i = 0; i < K; ++i) {
     for (long j = i + 1; j < K; ++j) {
       if (palette_lab[i].x > palette_lab[j].x) {
@@ -259,7 +259,7 @@ int doKmeans(const vector<Pixel_D> &pixels_rgb_d,
     palette_rgb_d[i].x = max(0.0, min(1.0, rgb_double.x));
     palette_rgb_d[i].y = max(0.0, min(1.0, rgb_double.y));
     palette_rgb_d[i].z = max(0.0, min(1.0, rgb_double.z));
-  }
+  }//lab转rgb？
 
   return 0;
 }

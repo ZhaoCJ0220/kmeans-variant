@@ -20,7 +20,7 @@ void cal_rbf_single_grid(const Pixel_D &rgb, vector<double> &res,
   if (r_idx == RBF_GRID_NUM) {
     r_idx = RBF_GRID_NUM - 1;
     r_bias = 1;
-  }
+  }//?
 
   g_idx = rgb.y * RBF_GRID_NUM;
   g_bias = g_idx - floor(g_idx);
@@ -38,7 +38,7 @@ void cal_rbf_single_grid(const Pixel_D &rgb, vector<double> &res,
     b_bias = 1;
   }
 
-  main_base_grid_idx = r_idx + g_idx * step_1 + b_idx * step_2;
+  main_base_grid_idx = r_idx + g_idx * step_1 + b_idx * step_2;//这里为什么是13？
 
   res[0] = main_base_grid_idx;
   res[1] = main_base_grid_idx + step_2;
@@ -71,12 +71,12 @@ void prepare_rbf_color(const vector<Pixel_D> &pixels_rgb_d,
   for (uint i = 0; i < iterations; ++i) {//b-channels
     for (uint j = 0; j < iterations; ++j) {//g-channels
       for (uint k = 0; k < iterations; ++k) {//r-channels
-        //反序索引累加, k, j, i
+        //反序索引累加, k, j, i，只是按照rgb的顺序而已，没有骚操作
         RGB2LAB(Pixel_D(k * step, j * step, i * step), rbf_lab_colors[idx]);
         ++idx;
       }
     }
-  }
+  }//分成13^3个顶点的值
 
   const size_t image_area = pixels_rgb_d.size();
   //magic data structure from original js code for rbf color calculation.
@@ -87,7 +87,8 @@ void prepare_rbf_color(const vector<Pixel_D> &pixels_rgb_d,
 
     for (uint8_t j = 0; j < 8; j++) {
       rbf_weight_index[i][j] = res[j];
-      rbf_weight_map[i][j] = res[j + 8];
+      rbf_weight_map[i][j] = res[j + 8];//res[0]和res[8]对应？？感觉是反的
+	  
     }
   }
 }
@@ -170,7 +171,7 @@ double findBoundary(const Pixel_D &point, const Pixel_D &direction,
     }
   }
   return start;
-}
+}//在lab空间上找到对应的rgb空间的boundary
 
 Pixel_D calculateSinglePoint(vector<Pixel_D> &current_palette_lab,
                              double rbf_param,
@@ -180,23 +181,23 @@ Pixel_D calculateSinglePoint(vector<Pixel_D> &current_palette_lab,
   uint CENTER_NUM = (uint) current_palette_lab.size();
 
   // weightMat: e^current_palette_lab distance
-  cv::Mat weightMat(CENTER_NUM, CENTER_NUM, CV_64F);
+  cv::Mat weightMat(CENTER_NUM, CENTER_NUM, CV_64F);//新建k*k的矩阵
   for (uint i = 0; i < CENTER_NUM; ++i) {
     for (uint j = 0; j < CENTER_NUM; ++j) {
       //首元素为黑，做偏移
       weightMat.at<double>(i, j) = exp(rbf_param * -1 *
-          LAB2Distance(current_palette_lab[i], current_palette_lab[j]));
+          LAB2Distance(current_palette_lab[i], current_palette_lab[j]));//LAB2Distance返回的是距离平方？rbf_param为1/(2*(6r)^2)?
     }
   }
 
-  cv::Mat diffMat(CENTER_NUM, 1, CV_64F);
+  cv::Mat diffMat(CENTER_NUM, 1, CV_64F);//k*1
   for (uint i = 0; i < CENTER_NUM; ++i) {
-    //首元素为黑，做偏移
+    //首元素为黑，做偏移?没做
     diffMat.at<double>(i) = exp(rbf_param * -1 *
         LAB2Distance(current_palette_lab[i], in_color_rbf));
   }
 
-  cv::Mat paramMat = weightMat.inv(cv::DECOMP_LU) * diffMat;
+  cv::Mat paramMat = weightMat.inv(cv::DECOMP_LU) * diffMat;//weightMat T *diffMat（对称矩阵转置干啥？）
 
   Pixel_D delta;
   double scale = 0;
@@ -205,7 +206,7 @@ Pixel_D calculateSinglePoint(vector<Pixel_D> &current_palette_lab,
   }
   for (uint i = 0; i < CENTER_NUM; ++i) {
     if (paramMat.at<double>(i) > 0) {
-      delta += paramMat.at<double>(i) / scale * diffs_rbf[i];
+      delta += paramMat.at<double>(i) / scale * diffs_rbf[i];//Wi(X)=paramMat.at<double>(i) / scale???
     }
   }
   return in_color_rbf + delta;
@@ -236,34 +237,34 @@ void calculateGridResult(vector<Pixel_D> &current_palette_lab,
     average_distance = 1.0;
   }
 
-  double rbf_param = RBF_PARAM_COFF / (average_distance * average_distance);
+  double rbf_param = RBF_PARAM_COFF / (average_distance * average_distance);//5/调色盘平均距离平方，这个参数干啥的？
 
   const size_t rbf_color_size = rbf_lab_colors.size();
 
   for (size_t i = 0; i < rbf_color_size; ++i) {
 
-    Pixel_D in_color_rbf = rbf_lab_colors[i];
+    Pixel_D in_color_rbf = rbf_lab_colors[i];//一个格子的端点
 
     vector<Pixel_D> diffs_rbf(CENTER_NUM);
 
     //首元素为黑，做偏移
-    for (size_t j = 0; j < CENTER_NUM; ++j) {
+    for (size_t j = 0; j < CENTER_NUM; ++j) {//对调色盘上每一个值
 
       Pixel_D palette_diff = palette_diffs[j];
 
-      if (isBigChange(palette_diff)) {
+      if (isBigChange(palette_diff)) {//存在大于0.5的就算bigchange
 
         Pixel_D out_color_rbf;
-        LAB2RGB((in_color_rbf + palette_diff), out_color_rbf);
-        if (isOutOfBoundary(out_color_rbf)) { //with 0.5 judge diff
-
+        LAB2RGB((in_color_rbf + palette_diff), out_color_rbf);//out是rgb的
+        if (isOutOfBoundary(out_color_rbf)) { //with 0.5 judge diff 是255的？
+			//X+CC'超过边界时
           Pixel_D out_palette_color_lab(current_palette_lab[j] +
-              palette_diff);
-          Pixel_D diff(in_color_rbf - current_palette_lab[j]);
+              palette_diff);//out_palette_color_lab
+          Pixel_D diff(in_color_rbf - current_palette_lab[j]);//格子端点和该原始调色盘值的差别CX
 
-          double ratio1 = findBoundary(out_palette_color_lab, diff, 0, 1);
+          double ratio1 = findBoundary(out_palette_color_lab, diff, 0, 1);//Cj',C'X0,0,1,返回与RGB空间边界的交点Xb(CX即C'X0)
           double ratio2 = findBoundary(current_palette_lab[j],
-                                       palette_diff, 1, 300);
+                                       palette_diff, 1, 300);//C,CC',1,300,取Cb，这里300有什么意义，返回CCb/CC'
 
           // validation
           LAB2RGB((out_palette_color_lab + diff), out_color_rbf);
@@ -276,15 +277,15 @@ void calculateGridResult(vector<Pixel_D> &current_palette_lab,
             cerr << "Something wrong in [calculateGridResult] function --- "
                 "ratio1 > 1 -- case 1!\n";
             exit(-1);
-          }
+          }//因为X+CC'>boundary,所以必然小于1
           if (ratio2 < 1) {
             cerr << "Something wrong in [calculateGridResult] function --- "
                 "ratio2 < 1 -- case 1!\n";
             exit(-1);
-          }
+          }//C'在边界内，故必然>=1
 
-          diffs_rbf[j] = (palette_diff - (1 - ratio1) * diff) / ratio2;
-          diffs_rbf[j].x *= ratio2;
+          diffs_rbf[j] = (palette_diff - (1 - ratio1) * diff) / ratio2;//(XX0-XbX0)*CC'/CCb=XX'(XX0-XbX0=XXb)
+          diffs_rbf[j].x *= ratio2;//???
         } else {
           double ratio1 = findBoundary(in_color_rbf, palette_diff, 1, 300);
           double ratio2 = findBoundary(current_palette_lab[j],
@@ -294,14 +295,14 @@ void calculateGridResult(vector<Pixel_D> &current_palette_lab,
                 "ratio2 < 1 -- case 2!\n";
             exit(-1);
           }
-          double lambda = min(ratio1 / ratio2, 1.0);
+          double lambda = min(ratio1 / ratio2, 1.0);//x比C离边界远时XX'=CC'，否则按比例压缩
           diffs_rbf[j] = palette_diff * lambda;
-          diffs_rbf[j].x /= lambda;
-        }
+          diffs_rbf[j].x /= lambda;//L做了啥操作？？等看完整个之后问
+        }//没超边界
       } else {
         diffs_rbf[j] = palette_diff;
-      }// end if(isBigChange(palette_diff))
-    }// end iteration in CENTER_NUM
+      }// end if(！isBigChange(palette_diff))对应调色盘小改变就直接对所有X都直接加了
+    }// end iteration in CENTER_NUM，即对一个顶点X计算K个Fi
 
     Pixel_D transfered_rbf_grid =
         calculateSinglePoint(current_palette_lab, rbf_param,
@@ -309,7 +310,7 @@ void calculateGridResult(vector<Pixel_D> &current_palette_lab,
 
     Pixel_D rgb_double;
     LAB2RGB(transfered_rbf_grid, rgb_double);
-    rbf_RGB_grids[i].x = max(0.0, min(1.0, rgb_double.x));
+    rbf_RGB_grids[i].x = max(0.0, min(1.0, rgb_double.x));//保证在范围内
     rbf_RGB_grids[i].y = max(0.0, min(1.0, rgb_double.y));
     rbf_RGB_grids[i].z = max(0.0, min(1.0, rgb_double.z));
   }
@@ -318,8 +319,8 @@ void calculateGridResult(vector<Pixel_D> &current_palette_lab,
 void colorTransfer(vector<Pixel_D> &pixels_rgb_d,
                    vector<Pixel_D> &current_palette_lab,
                    const vector<Pixel_D> &target_palette_lab,
-                   vector<Pixel_D> &rbf_lab_colors,
-                   vector<Pixel_D> &rbf_RGB_grids,
+                   vector<Pixel_D> &rbf_lab_colors,//隔出来的那些。。
+                   vector<Pixel_D> &rbf_RGB_grids,//空的？
                    vector<vector<double>> &rbf_weight_index,
                    vector<vector<double>> &rbf_weight_map) {
   uint CENTER_NUM_WITH_BLACK = (uint) current_palette_lab.size();
@@ -329,7 +330,7 @@ void colorTransfer(vector<Pixel_D> &pixels_rgb_d,
   vector<Pixel_D> palette_diffs(CENTER_NUM_WITH_BLACK);
   for (size_t i = 0; i < CENTER_NUM_WITH_BLACK; ++i) {
     palette_diffs[i] = target_palette_lab[i] - current_palette_lab[i];
-  }
+  }//k个基向量cc'
 
   calculateGridResult(current_palette_lab, palette_diffs,
                       rbf_lab_colors, rbf_RGB_grids);
@@ -342,7 +343,7 @@ void colorTransfer(vector<Pixel_D> &pixels_rgb_d,
     }
     //value gamut judgement
     pixels_rgb_d[i] = tmp_rgb;
-  }
+  }//每个点按原来和周围8个点的比例关系转化
 }
 
 int recolor5(string input_image_path,
@@ -363,7 +364,7 @@ int recolor5(string input_image_path,
     return -1;
   }
 
-  size_t image_area = (size_t) input_image.size().area();
+  size_t image_area = (size_t) input_image.size().area();//w*h
 
 #ifndef NDEBUG
   cout << "[recolor5] >> input image size: " << image_area << endl;
@@ -372,7 +373,7 @@ int recolor5(string input_image_path,
   cout << endl;
 #endif
 
-  vector<Pixel_D> pixels_rgb_d(image_area);
+  vector<Pixel_D> pixels_rgb_d(image_area);//Pixel_D 含x,y,z
 
   //read b-g-r three channels from opencv Mat
   for (size_t i = 0; i < image_area; ++i) {
@@ -388,14 +389,14 @@ int recolor5(string input_image_path,
   vector<uint> palette_count(CENTER_NUM);
 
   cout << "[recolor5] >> Kmeans doing\n";
-  doKmeans(pixels_rgb_d, current_palette_rgb_d, palette_count);
+  doKmeans(pixels_rgb_d, current_palette_rgb_d, palette_count);//原调色盘，配色的时候怎么对应回来？（对所有的有效颜色，有一个对应关系，不用再对应到坐标）
 
   //magic data structure
   const uint rbf_color_size = (RBF_GRID_NUM + 1u) * (RBF_GRID_NUM + 1u) *
-      (RBF_GRID_NUM + 1u);
+      (RBF_GRID_NUM + 1u);//+1？
   vector<Pixel_D> rbf_lab_colors(rbf_color_size);
-  vector<vector<double>> rbf_weight_index(image_area, vector<double>(8));
-  vector<vector<double>> rbf_weight_map(image_area, vector<double>(8));
+  vector<vector<double>> rbf_weight_index(image_area, vector<double>(8));//格子的8个顶点？
+  vector<vector<double>> rbf_weight_map(image_area, vector<double>(8));//小数部分？
   vector<Pixel_D> rbf_RGB_grids(rbf_color_size);
 
 
@@ -409,9 +410,9 @@ int recolor5(string input_image_path,
   // start transfer
   //如果在配色方案中有黑色的存在，在应该将黑色也作为颜色迁移的一个中心点
   //目前这一版考虑颜色方案中缺少黑色的存在，故少一色进行迁移
-  for (int transfer_id = 0; transfer_id < CENTER_NUM; ++transfer_id) {
+  for (int transfer_id = 0; transfer_id < CENTER_NUM; ++transfer_id) {//这外面一层的CENTER_NUM是什么意思？一次只改一个调色盘颜色
 
-    Pixel_D target_color_rgb_d = desired_palette_list[transfer_id];
+    Pixel_D target_color_rgb_d = desired_palette_list[transfer_id];//下标transfer_id的目标调色盘颜色值
 
     cout << "[recolor5] >> transfer color: "
          << target_color_rgb_d.x << " - "
@@ -421,29 +422,29 @@ int recolor5(string input_image_path,
     cout << endl;
 
     prepare_rbf_color(pixels_rgb_d, rbf_lab_colors,
-                      rbf_weight_index, rbf_weight_map, RBF_GRID_NUM);
+                      rbf_weight_index, rbf_weight_map, RBF_GRID_NUM);//整个的prepare_rbf_color
 
     //Modifying luminance to maintain monotonicity
     vector<Pixel_D> current_palette_lab(CENTER_NUM);
 
     for (size_t i = 0; i < CENTER_NUM; ++i) {
       RGB2LAB(current_palette_rgb_d[i], current_palette_lab[i]);
-    }
+    }//当前调色盘转lab
 
     cout << "[recolor5] >> modify Luminance" << endl;
 
-    vector<Pixel_D> target_palette_rgb_d(current_palette_rgb_d);
+    vector<Pixel_D> target_palette_rgb_d(current_palette_rgb_d);//复制
 
 //    modifyLuminance(current_palette_lab, target_palette_rgb_d,
 //                    (uint)transfer_id, target_color_rgb_d);
 //    cout << "[recolor5] >> modify Luminance Done! " << endl;
 
-    target_palette_rgb_d[transfer_id] = target_color_rgb_d;
+    target_palette_rgb_d[transfer_id] = target_color_rgb_d;//第targetid个变
 
     vector<Pixel_D> target_palette_lab(CENTER_NUM);
     for (size_t i = 0; i < CENTER_NUM; ++i) {
       RGB2LAB(target_palette_rgb_d[i], target_palette_lab[i]);
-    }
+    }//全转lab
 
 #ifndef NDEBUG
     cout << "[recolor5] >> current palette:\n";
