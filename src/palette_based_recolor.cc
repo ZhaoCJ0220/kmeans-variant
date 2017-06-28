@@ -285,7 +285,7 @@ void calculateGridResult(vector<Pixel_D> &current_palette_lab,
           }//C'在边界内，故必然>=1
 
           diffs_rbf[j] = (palette_diff - (1 - ratio1) * diff) / ratio2;//(XX0-XbX0)*CC'/CCb=XX'(XX0-XbX0=XXb)
-          diffs_rbf[j].x *= ratio2;//???
+//          diffs_rbf[j].x *= ratio2;//???
         } else {
           double ratio1 = findBoundary(in_color_rbf, palette_diff, 1, 300);
           double ratio2 = findBoundary(current_palette_lab[j],
@@ -297,7 +297,8 @@ void calculateGridResult(vector<Pixel_D> &current_palette_lab,
           }
           double lambda = min(ratio1 / ratio2, 1.0);//x比C离边界远时XX'=CC'，否则按比例压缩
           diffs_rbf[j] = palette_diff * lambda;
-          diffs_rbf[j].x /= lambda;//L做了啥操作？？等看完整个之后问
+          //不管L通道试试
+//          diffs_rbf[j].x /= lambda;//L做了啥操作？？等看完整个之后问
         }//没超边界
       } else {
         diffs_rbf[j] = palette_diff;
@@ -410,9 +411,9 @@ int recolor5(string input_image_path,
   // start transfer
   //如果在配色方案中有黑色的存在，在应该将黑色也作为颜色迁移的一个中心点
   //目前这一版考虑颜色方案中缺少黑色的存在，故少一色进行迁移
-  for (int transfer_id = 0; transfer_id < CENTER_NUM; ++transfer_id) {//这外面一层的CENTER_NUM是什么意思？一次只改一个调色盘颜色
+//  for (int transfer_id = 0; transfer_id < CENTER_NUM; ++transfer_id) {//这外面一层的CENTER_NUM是什么意思？一次只改一个调色盘颜色
 
-    Pixel_D target_color_rgb_d = desired_palette_list[transfer_id];//下标transfer_id的目标调色盘颜色值
+//    Pixel_D target_color_rgb_d = desired_palette_list[transfer_id];//下标transfer_id的目标调色盘颜色值
 
     cout << "[recolor5] >> transfer color: "
          << target_color_rgb_d.x << " - "
@@ -422,7 +423,7 @@ int recolor5(string input_image_path,
     cout << endl;
 
     prepare_rbf_color(pixels_rgb_d, rbf_lab_colors,
-                      rbf_weight_index, rbf_weight_map, RBF_GRID_NUM);//整个的prepare_rbf_color
+                      rbf_weight_index, rbf_weight_map, RBF_GRID_NUM);
 
     //Modifying luminance to maintain monotonicity
     vector<Pixel_D> current_palette_lab(CENTER_NUM);
@@ -433,15 +434,15 @@ int recolor5(string input_image_path,
 
     cout << "[recolor5] >> modify Luminance" << endl;
 
-    vector<Pixel_D> target_palette_rgb_d(current_palette_rgb_d);//复制
+//    vector<Pixel_D> target_palette_rgb_d(current_palette_rgb_d);//复制
 
 //    modifyLuminance(current_palette_lab, target_palette_rgb_d,
 //                    (uint)transfer_id, target_color_rgb_d);
 //    cout << "[recolor5] >> modify Luminance Done! " << endl;
 
-    target_palette_rgb_d[transfer_id] = target_color_rgb_d;//第targetid个变
+//    target_palette_rgb_d[transfer_id] = target_color_rgb_d;//第targetid个变
 
-    vector<Pixel_D> target_palette_lab(CENTER_NUM);
+    vector<Pixel_D> target_palette_lab(desired_palette_list);
     for (size_t i = 0; i < CENTER_NUM; ++i) {
       RGB2LAB(target_palette_rgb_d[i], target_palette_lab[i]);
     }//全转lab
@@ -470,9 +471,9 @@ int recolor5(string input_image_path,
                   rbf_weight_index, rbf_weight_map);
     cout << "[recolor5] >> color transferring DONE!\n\n";
 
-    current_palette_rgb_d = target_palette_rgb_d;
+//    current_palette_rgb_d = target_palette_rgb_d;
 
-  }
+//  }
   //merge rgb channels back to image Mat
   for (size_t i = 0; i < image_area; ++i) {
     //r

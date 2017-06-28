@@ -240,18 +240,19 @@ int doKmeans(const vector<Pixel_D> &pixels_rgb_d,
   gridKmeans(pixels_rgb_d, palette_lab, palette_count, 128);//grid remain to search
 
   //sort by L component by LAB(按L选择排序（升序））
-  for (long i = 0; i < K; ++i) {
-    for (long j = i + 1; j < K; ++j) {
-      if (palette_lab[i].x > palette_lab[j].x) {
-        Pixel_D tmp = palette_lab[j];
-        palette_lab[j] = palette_lab[i];
-        palette_lab[i] = tmp;
-        uint count_tmp = palette_count[j];
-        palette_count[j] = palette_count[i];
-        palette_count[i] = count_tmp;
-      }
-    }
-  }
+  //修改的话直接按照聚类中点个数排序，就不用操作了
+//  for (long i = 0; i < K; ++i) {
+//    for (long j = i + 1; j < K; ++j) {
+//      if (palette_lab[i].x > palette_lab[j].x) {
+//        Pixel_D tmp = palette_lab[j];
+//        palette_lab[j] = palette_lab[i];
+//        palette_lab[i] = tmp;
+//        uint count_tmp = palette_count[j];
+//        palette_count[j] = palette_count[i];
+//        palette_count[i] = count_tmp;
+//      }
+//    }
+//  }
 
   for (size_t i = 0; i < K; ++i) {
     Pixel_D rgb_double;
