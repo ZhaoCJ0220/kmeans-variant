@@ -442,9 +442,9 @@ int recolor5(string input_image_path,
 
 //    target_palette_rgb_d[transfer_id] = target_color_rgb_d;//第targetid个变
 
-    vector<Pixel_D> target_palette_lab(desired_palette_list);
+    vector<Pixel_D> target_palette_lab(CENTER_NUM);
     for (size_t i = 0; i < CENTER_NUM; ++i) {
-      RGB2LAB(target_palette_rgb_d[i], target_palette_lab[i]);
+      RGB2LAB(desired_palette_list[i], target_palette_lab[i]);
     }//全转lab
 
 #ifndef NDEBUG
