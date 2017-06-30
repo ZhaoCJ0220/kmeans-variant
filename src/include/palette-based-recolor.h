@@ -9,12 +9,13 @@
 
 int recolor5(string input_image_path,
              string output_image_path,
-             vector<Pixel_D> desired_palette_list);
+             vector<Pixel_D> desired_palette_list,double rate);
 
 int recolor4one(string input_image_path,
                 string output_image_path,
                 vector<Pixel_D> current_palette_rgb_d,
                 int transfer_id,
                 Pixel_D target_color_rgb_d);
+int drawColorPadding(string inputImagePath,vector<Pixel_D> &palette_list_d);
 
 #endif //INTELLID_RECOLOR_PALETTE_BASED_RECOLOR_H

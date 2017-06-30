@@ -13,5 +13,6 @@ using namespace std;
 typedef cv::Point3_<uint8_t> Pixel_255;
 typedef cv::Point3d Pixel_D;
 typedef std::numeric_limits<double> DBL;
+typedef cv::Mat CMYK_Pix_D;
 
 #endif //INTELLID_RECOLOR_ALL_IN_ONE_H

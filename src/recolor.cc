@@ -26,7 +26,7 @@ int getPaletteInfo(const vector<Pixel_D> &pixels_rgb_d,
   paletteInfo.palettes_rgb_d.resize(k);
   paletteInfo.counts.resize(k);
 
-  doKmeans(pixels_rgb_d, paletteInfo.palettes_rgb_d, paletteInfo.counts);
+  doKmeans(pixels_rgb_d, paletteInfo.palettes_rgb_d, paletteInfo.counts,2);
 
   return 0;
 }
@@ -115,7 +115,6 @@ int getPalette(string input_image_path) {
   cout << "@@@" << palette.dump() << "@@@" << endl;
   return 0;
 }
-
 int main(int argc, char **argv) {
 
   cout.precision(DBL::max_digits10);//输出精度
@@ -127,6 +126,8 @@ int main(int argc, char **argv) {
   //like "[72,83,148,124,135,177,171,176,206,220,187,164,232,237,240]"
   //sorted by illuminance in LAB color space
   string desired_palette_args = argv[3];
+
+  double rate = stod(argv[5]);
 
   int with_palette = stoi(argv[4]);//string to int
 
@@ -155,8 +156,38 @@ int main(int argc, char **argv) {
   }//desired_palette_list是目标色list
   cout << endl;
 #endif
+//  int K = desired_palette_list.size();
+//  vector<CMYK_Pix_D> palette_cmyk(K);
+//  for (long i = 0; i < K; ++i) {
+//    CMYK_Pix_D temp_cmyk(4,1,CV_64F);
+//    palette_cmyk[i] = temp_cmyk;
+//  }
+//  vector<double> depth(K);
+//  for (long i = 0; i < K; ++i) {
+//    depth[i] = RGB2CMYK(desired_palette_list[i],palette_cmyk[i],rate);
+//  }
+//  printf("RGB2CMYK done!\n");
+//  for (long i = 0; i < K; ++i) {
+//    for (long j = i + 1; j < K; ++j) {
+//      if (depth[i] > depth[j]) {
+//        Pixel_D tmp = desired_palette_list[j];
+//        desired_palette_list[j] = desired_palette_list[i];
+//        desired_palette_list[i] = tmp;
+//      }
+//    }
+//  }//将输入rgb按cmyk升序
+//  vector<Pixel_D> seleted_palette_list;
+//  if(K<=3){
+//    seleted_palette_list = desired_palette_list;
+//  }
+//  else{
+//    seleted_palette_list.push_back(desired_palette_list[0]);
+//    seleted_palette_list.push_back(desired_palette_list[int(K/2)]);
+//    seleted_palette_list.push_back(desired_palette_list[K-1]);
+//  }
 
-  int status = recolor5(input_image_path, output_image_path, desired_palette_list);
+
+  int status = recolor5(input_image_path, output_image_path, desired_palette_list, rate);
   if (status != 0) {
     return -1;
   }

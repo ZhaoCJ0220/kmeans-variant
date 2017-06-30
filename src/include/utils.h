@@ -22,6 +22,9 @@ void LAB2RGB(const Pixel_D &lab,
 void RGB2LAB(const Pixel_D &rgb,
              Pixel_D &pixel_lab_tmp);
 
+double RGB2CMYK(const Pixel_D &rgb,
+              CMYK_Pix_D &pixel_cmyk_tmp,double rate);
+
 int gridKmeans(const vector<Pixel_D> &pixels_rgb_d,
                vector<Pixel_D> &palette_lab,
                vector<uint> &palette_count,
@@ -29,6 +32,6 @@ int gridKmeans(const vector<Pixel_D> &pixels_rgb_d,
 
 int doKmeans(const vector<Pixel_D> &pixels_rgb_d,
              vector<Pixel_D> &palette_rgb_d,
-             vector<uint> &palette_count);
+             vector<uint> &palette_count,double rate);
 
 #endif //INTELLID_RECOLOR_UTILS_H

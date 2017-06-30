@@ -1,11 +1,22 @@
 //
 // author: Wu Shensen
 //
+#include <boost/filesystem.hpp>
+
 #include "include/all_in_one.h"
+#include "include/json.hpp"
 #include "include/utils.h"
 
 using namespace std;
+using namespace cv;
+using namespace boost::filesystem;
+using Json = nlohmann::json;
 
+static inline bool isNearWight(const Pixel_255 &rgb) {
+  Pixel_D lab;
+  RGB2LAB((Pixel_D) rgb / 255.0, lab);
+  return lab.x > 80;
+}
 void cal_rbf_single_grid(const Pixel_D &rgb, vector<double> &res,
                          const uint RBF_GRID_NUM) {
   double step_1 = RBF_GRID_NUM + 1;
@@ -285,7 +296,7 @@ void calculateGridResult(vector<Pixel_D> &current_palette_lab,
           }//C'在边界内，故必然>=1
 
           diffs_rbf[j] = (palette_diff - (1 - ratio1) * diff) / ratio2;//(XX0-XbX0)*CC'/CCb=XX'(XX0-XbX0=XXb)
-//          diffs_rbf[j].x *= ratio2;//???
+          diffs_rbf[j].x *= ratio2;//???
         } else {
           double ratio1 = findBoundary(in_color_rbf, palette_diff, 1, 300);
           double ratio2 = findBoundary(current_palette_lab[j],
@@ -298,7 +309,7 @@ void calculateGridResult(vector<Pixel_D> &current_palette_lab,
           double lambda = min(ratio1 / ratio2, 1.0);//x比C离边界远时XX'=CC'，否则按比例压缩
           diffs_rbf[j] = palette_diff * lambda;
           //不管L通道试试
-//          diffs_rbf[j].x /= lambda;//L做了啥操作？？等看完整个之后问
+          diffs_rbf[j].x /= lambda;//L做了啥操作？？等看完整个之后问
         }//没超边界
       } else {
         diffs_rbf[j] = palette_diff;
@@ -346,12 +357,63 @@ void colorTransfer(vector<Pixel_D> &pixels_rgb_d,
     pixels_rgb_d[i] = tmp_rgb;
   }//每个点按原来和周围8个点的比例关系转化
 }
+int drawColorPadding(string inputImagePath,vector<Pixel_D> &palettes_rgb_d){
+  cv::Mat input = cv::imread(inputImagePath);
 
+  vector<Pixel_255> palettes_rgb;
+  int K = palettes_rgb_d.size();
+  for(int i=0;i<K;i++){
+    Pixel_255 temp(int(255*palettes_rgb_d[i].x),int(255*palettes_rgb_d[i].y),int(255*palettes_rgb_d[i].y));
+    palettes_rgb.push_back(temp);
+  }
+
+  int pointIdx = inputImagePath.find_last_of(".");
+  string outPutPath = inputImagePath.substr(0,pointIdx).append("withPalette").append(".jpg");
+
+  int height = input.rows;
+  int width = input.cols;
+
+  // padding + square_size = (width - padding) / 10
+  // padding is 1/6 of square_size
+  // line_thickness is 1/10 of padding.
+  int padding = width / 71;
+  int line_thickness = padding / 10;
+  int square_size = 6 * padding;
+  int canvas_size = padding + square_size;
+
+  int multi_canvas = (int) ceil(K / 10.0);
+  int total_canvas_size = multi_canvas * canvas_size + padding;
+
+  cv::Mat output(Size(height + total_canvas_size, width), input.type());
+  copyMakeBorder(input, output, 0, total_canvas_size, 0, 0, BORDER_CONSTANT,
+                 Scalar(255, 255, 255));
+
+  for (uint col = 0; col < K; ++col) {
+    int row = col / 10;
+    int mod_col = col % 10;
+    Point start(padding + mod_col * canvas_size,
+                height + padding + row * canvas_size);
+    rectangle(output, start, start + Point(square_size, square_size),
+              Scalar(palettes_rgb[col].z, palettes_rgb[col].y,
+                     palettes_rgb[col].x), cv::FILLED);
+
+    if (isNearWight(palettes_rgb[col])) {
+      rectangle(output, start, start + Point(square_size, square_size),
+                Scalar(0, 0, 0), line_thickness);
+    }
+
+  }
+
+
+  //output path, directory must be existed.
+  imwrite(outPutPath, output);
+  return 0;
+}
 int recolor5(string input_image_path,
              string output_image_path,
-             vector<Pixel_D> desired_palette_list) {
+             vector<Pixel_D> desired_palette_list,double rate) {
 
-  const uint CENTER_NUM = (uint) desired_palette_list.size();
+  uint CENTER_NUM = (uint) desired_palette_list.size();
 //  size_t CENTER_NUM_WITH_BLACK = CENTER_NUM + 1;
 
   const uint RBF_GRID_NUM = 12;
@@ -390,8 +452,79 @@ int recolor5(string input_image_path,
   vector<uint> palette_count(CENTER_NUM);
 
   cout << "[recolor5] >> Kmeans doing\n";
-  doKmeans(pixels_rgb_d, current_palette_rgb_d, palette_count);//原调色盘，配色的时候怎么对应回来？（对所有的有效颜色，有一个对应关系，不用再对应到坐标）
+  doKmeans(pixels_rgb_d, current_palette_rgb_d, palette_count,rate);//原调色盘，配色的时候怎么对应回来？（对所有的有效颜色，有一个对应关系，不用再对应到坐标）
 
+//  int k = current_palette_rgb_d.size();
+  for (long i = 0; i < CENTER_NUM; ++i) {
+    for (long j = i + 1; j < CENTER_NUM; ++j) {
+      if (palette_count[i] < palette_count[j]) {
+        Pixel_D tmp = desired_palette_list[j];
+        desired_palette_list[j] = desired_palette_list[i];
+        desired_palette_list[i] = tmp;
+        uint tmpint = palette_count[i];
+        palette_count[i] = palette_count[j];
+        palette_count[j] = tmpint;
+      }
+    }
+  }//按count降序排列调色盘
+
+  //按距离排序目标调色盘
+  double largestDis = 0;
+  int idx1,idx2;
+  for(int i=0;i<CENTER_NUM;i++){
+    for(int j=0;j<CENTER_NUM;j++){
+      double temp = Norm2Distance(desired_palette_list[i],desired_palette_list[j]);
+      if(temp>largestDis){
+        largestDis = temp;
+        idx1=i;idx2=j;
+      }
+    }
+  }
+  vector<Pixel_D> tmp_desired_palette_list;
+  tmp_desired_palette_list.push_back(desired_palette_list[idx1]);
+  for(int i=0;i<(CENTER_NUM-1);i++){
+    double minD = 9999999999;
+    int nextidx;
+    for(int j=0;j<CENTER_NUM;j++){
+      double temp = Norm2Distance(tmp_desired_palette_list[i],desired_palette_list[j]);
+      if(temp<minD&&temp!=0.0){
+        nextidx = j;
+        minD = temp;
+      }
+    }
+    tmp_desired_palette_list.push_back(desired_palette_list[nextidx]);
+  }
+  desired_palette_list = tmp_desired_palette_list;
+
+
+  //按距离筛选
+  uint finalK = 1;
+  vector<Pixel_D> final_target_lab;
+  final_target_lab.push_back(desired_palette_list[0]);
+  for(uint i=0,j=0;i<(CENTER_NUM-1)&&j<(CENTER_NUM-1);i++){
+    double tmp = Norm2Distance(current_palette_rgb_d[i],current_palette_rgb_d[i+1]);
+    int ltidx = j;
+    j++;
+    while(j<CENTER_NUM&&Norm2Distance(desired_palette_list[ltidx],desired_palette_list[j])<1*tmp)j++;
+    if(j==CENTER_NUM)break;
+    final_target_lab.push_back(desired_palette_list[j]);
+    finalK++;
+  }
+  CENTER_NUM = finalK;
+  printf("eligible palette number : %d",CENTER_NUM);
+  desired_palette_list = final_target_lab;
+  current_palette_rgb_d.assign(current_palette_rgb_d.begin(),current_palette_rgb_d.begin()+CENTER_NUM);
+
+  drawColorPadding(input_image_path,current_palette_rgb_d);
+  #ifndef NDEBUG
+  cout << "[main] >> current palette rgb:\n";
+  for (size_t i = 0; i < desired_palette_list.size(); ++i) {
+    cout <<int(current_palette_rgb_d[i].x*255)<< ","
+         <<int(current_palette_rgb_d[i].x*255)<< ","
+         <<int(current_palette_rgb_d[i].x*255)<<endl;
+  }//desired_palette_list是目标色list
+  cout << endl;
+#endif
   //magic data structure
   const uint rbf_color_size = (RBF_GRID_NUM + 1u) * (RBF_GRID_NUM + 1u) *
       (RBF_GRID_NUM + 1u);//+1？
@@ -415,12 +548,12 @@ int recolor5(string input_image_path,
 
 //    Pixel_D target_color_rgb_d = desired_palette_list[transfer_id];//下标transfer_id的目标调色盘颜色值
 
-    cout << "[recolor5] >> transfer color: "
-         << target_color_rgb_d.x << " - "
-         << target_color_rgb_d.y << " - "
-         << target_color_rgb_d.z << endl;
-    cout << "[recolor5] >> transfer idx: " << transfer_id << endl;
-    cout << endl;
+//    cout << "[recolor5] >> transfer color: "
+//         << target_color_rgb_d.x << " - "
+//         << target_color_rgb_d.y << " - "
+//         << target_color_rgb_d.z << endl;
+//    cout << "[recolor5] >> transfer idx: " << transfer_id << endl;
+//    cout << endl;
 
     prepare_rbf_color(pixels_rgb_d, rbf_lab_colors,
                       rbf_weight_index, rbf_weight_map, RBF_GRID_NUM);
@@ -445,7 +578,7 @@ int recolor5(string input_image_path,
     vector<Pixel_D> target_palette_lab(CENTER_NUM);
     for (size_t i = 0; i < CENTER_NUM; ++i) {
       RGB2LAB(desired_palette_list[i], target_palette_lab[i]);
-    }//全转lab
+    }//目标调色盘转lab
 
 #ifndef NDEBUG
     cout << "[recolor5] >> current palette:\n";
@@ -573,6 +706,7 @@ int recolor4one(string input_image_path,
   }
 
   cv::imwrite(output_image_path, input_image);
+  drawColorPadding(output_image_path,target_palette_rgb_d);
 
   return 0;
 }

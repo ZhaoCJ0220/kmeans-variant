@@ -23,7 +23,7 @@ int getPaletteInfo(const vector<Pixel_D> &pixels_rgb_d,
   paletteInfo.palettes_rgb_d.resize(k);
   paletteInfo.counts.resize(k);
 
-  doKmeans(pixels_rgb_d, paletteInfo.palettes_rgb_d, paletteInfo.counts);
+  doKmeans(pixels_rgb_d, paletteInfo.palettes_rgb_d, paletteInfo.counts,2);
 
   return 0;
 }

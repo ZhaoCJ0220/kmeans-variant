@@ -1,7 +1,7 @@
 //
 // author: Wu Shensen
 //
-
+#include <math.h>
 #include "include/all_in_one.h"
 #include "include/utils.h"
 
@@ -89,6 +89,31 @@ void RGB2LAB(const Pixel_D &rgb, Pixel_D &pixel_lab_tmp) {
   pixel_lab_tmp.x = 116.0f * fy - 16.0f;
   pixel_lab_tmp.y = 500.0f * (fx - fy);
   pixel_lab_tmp.z = 200.0f * (fy - fz);
+}
+
+double RGB2CMYK(const Pixel_D &rgb,
+              CMYK_Pix_D &pixel_cmyk_tmp,double rate){
+  double r, g, b,c,m,y,k;
+  r = rgb.x;
+  g = rgb.y;
+  b = rgb.z;
+  k = 1-max(max(r,g),b);
+  if(k==1){
+    c=0;
+    m=0;
+    y=0;
+  }
+  else{
+    c = (1-k-r)/(1-k);
+    m = (1-k-g)/(1-k);
+    y = (1-k-b)/(1-k);
+  }
+
+  pixel_cmyk_tmp.at<double>(0) = c;
+  pixel_cmyk_tmp.at<double>(1) = m;
+  pixel_cmyk_tmp.at<double>(2) = y;
+  pixel_cmyk_tmp.at<double>(3) = k;
+  return (c+m+y+rate*k)/(3+rate);
 }
 
 int gridKmeans(const vector<Pixel_D> &pixels_rgb_d,
@@ -230,7 +255,7 @@ int gridKmeans(const vector<Pixel_D> &pixels_rgb_d,
  */
 int doKmeans(const vector<Pixel_D> &pixels_rgb_d,
              vector<Pixel_D> &palette_rgb_d,
-             vector<uint> &palette_count) {
+             vector<uint> &palette_count,double rate) {
 
   assert(palette_rgb_d.size() == palette_count.size());//不等则程序终止
 
@@ -240,7 +265,6 @@ int doKmeans(const vector<Pixel_D> &pixels_rgb_d,
   gridKmeans(pixels_rgb_d, palette_lab, palette_count, 128);//grid remain to search
 
   //sort by L component by LAB(按L选择排序（升序））
-  //修改的话直接按照聚类中点个数排序，就不用操作了
 //  for (long i = 0; i < K; ++i) {
 //    for (long j = i + 1; j < K; ++j) {
 //      if (palette_lab[i].x > palette_lab[j].x) {
@@ -254,6 +278,7 @@ int doKmeans(const vector<Pixel_D> &pixels_rgb_d,
 //    }
 //  }
 
+
   for (size_t i = 0; i < K; ++i) {
     Pixel_D rgb_double;
     LAB2RGB(palette_lab[i], rgb_double);
@@ -262,5 +287,28 @@ int doKmeans(const vector<Pixel_D> &pixels_rgb_d,
     palette_rgb_d[i].z = max(0.0, min(1.0, rgb_double.z));
   }//lab转rgb？
 
+  //排序
+//  vector<CMYK_Pix_D> palette_cmyk(K);
+//  for (long i = 0; i < K; ++i) {
+//    CMYK_Pix_D temp_cmyk(4,1,CV_64F);
+//    palette_cmyk[i] = temp_cmyk;
+//  }
+//
+//  vector<double> depth(K);
+//  for (long i = 0; i < K; ++i) {
+//    depth[i] = RGB2CMYK(palette_rgb_d[i],palette_cmyk[i],rate);
+//  }
+//  for (long i = 0; i < K; ++i) {
+//    for (long j = i + 1; j < K; ++j) {
+//      if (depth[i]> depth[j]) {
+//        Pixel_D tmp = palette_rgb_d[j];
+//        palette_rgb_d[j] = palette_rgb_d[i];
+//        palette_rgb_d[i] = tmp;
+//        uint count_tmp = palette_count[j];
+//        palette_count[j] = palette_count[i];
+//        palette_count[i] = count_tmp;
+//      }
+//    }
+//  }
   return 0;
 }
